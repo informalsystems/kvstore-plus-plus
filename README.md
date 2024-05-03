@@ -6,7 +6,7 @@ This application runs in a separate process than CometBFT, and it connects to Co
 
 ## Branches 
 
-This repo includes multiple `branches` that support different KV Stores running on different CometBFT releases 
+This repo includes multiple `branches` that support different KVStore++ applications that target different CometBFT releases 
 - `main`
 - `v1-alpha`
 - `v0.38`
