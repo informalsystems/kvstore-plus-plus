@@ -22,16 +22,16 @@ func NewKVStoreApplication(db *db.PebbleDB, logger cmtlog.Logger) *KVStoreApplic
 	return &KVStoreApplication{db: db, logger: logger}
 }
 
-func (app *KVStoreApplication) Info(_ context.Context, info *abcitypes.InfoRequest) (*abcitypes.InfoResponse, error) {
-	return &abcitypes.InfoResponse{
+func (app *KVStoreApplication) Info(_ context.Context, _ *abcitypes.RequestInfo) (*abcitypes.ResponseInfo, error) {
+	return &abcitypes.ResponseInfo{
 		Data:       "kvstore++",
 		Version:    version.ABCIVersion,
 		AppVersion: version.BlockProtocol,
 	}, nil
 }
 
-func (app *KVStoreApplication) Query(_ context.Context, req *abcitypes.QueryRequest) (*abcitypes.QueryResponse, error) {
-	resp := abcitypes.QueryResponse{Key: req.Data}
+func (app *KVStoreApplication) Query(_ context.Context, req *abcitypes.RequestQuery) (*abcitypes.ResponseQuery, error) {
+	resp := abcitypes.ResponseQuery{Key: req.Data}
 
 	item, err := app.db.Get(req.Data)
 	if err != nil {
@@ -49,24 +49,24 @@ func (app *KVStoreApplication) Query(_ context.Context, req *abcitypes.QueryRequ
 	return &resp, nil
 }
 
-func (app *KVStoreApplication) CheckTx(_ context.Context, check *abcitypes.CheckTxRequest) (*abcitypes.CheckTxResponse, error) {
+func (app *KVStoreApplication) CheckTx(_ context.Context, check *abcitypes.RequestCheckTx) (*abcitypes.ResponseCheckTx, error) {
 	code := app.isValid(check.Tx)
-	return &abcitypes.CheckTxResponse{Code: code}, nil
+	return &abcitypes.ResponseCheckTx{Code: code}, nil
 }
 
-func (app *KVStoreApplication) InitChain(_ context.Context, chain *abcitypes.InitChainRequest) (*abcitypes.InitChainResponse, error) {
-	return &abcitypes.InitChainResponse{}, nil
+func (app *KVStoreApplication) InitChain(_ context.Context, _ *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error) {
+	return &abcitypes.ResponseInitChain{}, nil
 }
 
-func (app *KVStoreApplication) PrepareProposal(_ context.Context, proposal *abcitypes.PrepareProposalRequest) (*abcitypes.PrepareProposalResponse, error) {
-	return &abcitypes.PrepareProposalResponse{Txs: proposal.Txs}, nil
+func (app *KVStoreApplication) PrepareProposal(_ context.Context, proposal *abcitypes.RequestPrepareProposal) (*abcitypes.ResponsePrepareProposal, error) {
+	return &abcitypes.ResponsePrepareProposal{Txs: proposal.Txs}, nil
 }
 
-func (app *KVStoreApplication) ProcessProposal(_ context.Context, proposal *abcitypes.ProcessProposalRequest) (*abcitypes.ProcessProposalResponse, error) {
-	return &abcitypes.ProcessProposalResponse{Status: abcitypes.PROCESS_PROPOSAL_STATUS_ACCEPT}, nil
+func (app *KVStoreApplication) ProcessProposal(_ context.Context, _ *abcitypes.RequestProcessProposal) (*abcitypes.ResponseProcessProposal, error) {
+	return &abcitypes.ResponseProcessProposal{Status: abcitypes.ResponseProcessProposal_ACCEPT}, nil
 }
 
-func (app *KVStoreApplication) FinalizeBlock(_ context.Context, req *abcitypes.FinalizeBlockRequest) (*abcitypes.FinalizeBlockResponse, error) {
+func (app *KVStoreApplication) FinalizeBlock(_ context.Context, req *abcitypes.RequestFinalizeBlock) (*abcitypes.ResponseFinalizeBlock, error) {
 	var txsResults = make([]*abcitypes.ExecTxResult, len(req.Txs))
 
 	app.batch = app.db.NewBatch()
@@ -97,42 +97,42 @@ func (app *KVStoreApplication) FinalizeBlock(_ context.Context, req *abcitypes.F
 		}
 	}
 
-	return &abcitypes.FinalizeBlockResponse{
+	return &abcitypes.ResponseFinalizeBlock{
 		TxResults: txsResults,
 	}, nil
 }
 
-func (app *KVStoreApplication) Commit(_ context.Context, commit *abcitypes.CommitRequest) (*abcitypes.CommitResponse, error) {
+func (app *KVStoreApplication) Commit(_ context.Context, _ *abcitypes.RequestCommit) (*abcitypes.ResponseCommit, error) {
 	err := app.batch.Write()
 	if err != nil {
 		app.logger.Error("abci", "method", "Commit", "msg", "error writing batch", "err", err)
 		return nil, errors.New("error during commit")
 	}
-	return &abcitypes.CommitResponse{}, nil
+	return &abcitypes.ResponseCommit{}, nil
 }
 
-func (app *KVStoreApplication) ListSnapshots(_ context.Context, snapshots *abcitypes.ListSnapshotsRequest) (*abcitypes.ListSnapshotsResponse, error) {
-	return &abcitypes.ListSnapshotsResponse{}, nil
+func (app *KVStoreApplication) ListSnapshots(_ context.Context, _ *abcitypes.RequestListSnapshots) (*abcitypes.ResponseListSnapshots, error) {
+	return &abcitypes.ResponseListSnapshots{}, nil
 }
 
-func (app *KVStoreApplication) OfferSnapshot(_ context.Context, snapshot *abcitypes.OfferSnapshotRequest) (*abcitypes.OfferSnapshotResponse, error) {
-	return &abcitypes.OfferSnapshotResponse{}, nil
+func (app *KVStoreApplication) OfferSnapshot(_ context.Context, _ *abcitypes.RequestOfferSnapshot) (*abcitypes.ResponseOfferSnapshot, error) {
+	return &abcitypes.ResponseOfferSnapshot{}, nil
 }
 
-func (app *KVStoreApplication) LoadSnapshotChunk(_ context.Context, chunk *abcitypes.LoadSnapshotChunkRequest) (*abcitypes.LoadSnapshotChunkResponse, error) {
-	return &abcitypes.LoadSnapshotChunkResponse{}, nil
+func (app *KVStoreApplication) LoadSnapshotChunk(_ context.Context, _ *abcitypes.RequestLoadSnapshotChunk) (*abcitypes.ResponseLoadSnapshotChunk, error) {
+	return &abcitypes.ResponseLoadSnapshotChunk{}, nil
 }
 
-func (app *KVStoreApplication) ApplySnapshotChunk(_ context.Context, chunk *abcitypes.ApplySnapshotChunkRequest) (*abcitypes.ApplySnapshotChunkResponse, error) {
-	return &abcitypes.ApplySnapshotChunkResponse{Result: abcitypes.APPLY_SNAPSHOT_CHUNK_RESULT_ACCEPT}, nil
+func (app *KVStoreApplication) ApplySnapshotChunk(_ context.Context, _ *abcitypes.RequestApplySnapshotChunk) (*abcitypes.ResponseApplySnapshotChunk, error) {
+	return &abcitypes.ResponseApplySnapshotChunk{Result: abcitypes.ResponseApplySnapshotChunk_ACCEPT}, nil
 }
 
-func (app *KVStoreApplication) ExtendVote(_ context.Context, extend *abcitypes.ExtendVoteRequest) (*abcitypes.ExtendVoteResponse, error) {
-	return &abcitypes.ExtendVoteResponse{}, nil
+func (app *KVStoreApplication) ExtendVote(_ context.Context, _ *abcitypes.RequestExtendVote) (*abcitypes.ResponseExtendVote, error) {
+	return &abcitypes.ResponseExtendVote{}, nil
 }
 
-func (app *KVStoreApplication) VerifyVoteExtension(_ context.Context, verify *abcitypes.VerifyVoteExtensionRequest) (*abcitypes.VerifyVoteExtensionResponse, error) {
-	return &abcitypes.VerifyVoteExtensionResponse{}, nil
+func (app *KVStoreApplication) VerifyVoteExtension(_ context.Context, verify *abcitypes.RequestVerifyVoteExtension) (*abcitypes.ResponseVerifyVoteExtension, error) {
+	return &abcitypes.ResponseVerifyVoteExtension{}, nil
 }
 
 func (app *KVStoreApplication) isValid(tx []byte) uint32 {
