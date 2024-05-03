@@ -32,13 +32,13 @@ In a terminal window in the current directory for this project, run the CometBFT
 
 ```
 go run github.com/cometbft/cometbft/cmd/cometbft@v1.0.0-alpha.2 init --home /tmp/cometbft-kv
-go run github.com/cometbft/cometbft/cmd/cometbft@v1.0.0-alpha.2 start --home /tmp/cometbft-kv --proxy_app unix://example.sock
+go run github.com/cometbft/cometbft/cmd/cometbft@v1.0.0-alpha.2 start --home /tmp/cometbft-kv --proxy_app unix:///tmp/kvstore++.sock
 ```
 
 On another terminal window in the same project folder run the KVStore application:
 
 ```
 go build
-./kvstore
+./kvstore --home /tmp/kvstore++ --address unix:///tmp/kvstore++.sock
 ```
 
