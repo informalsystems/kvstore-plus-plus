@@ -97,7 +97,8 @@ func (app *KVStoreApplication) DeliverTx(req abcitypes.RequestDeliverTx) abcityp
 			app.logger.Error("abci", "method", "FinalizeBlock", "msg", "error setting batch", "code", code)
 			panic(err)
 		}
-		return abcitypes.ResponseDeliverTx{
+
+		respDeliverTx := abcitypes.ResponseDeliverTx{
 			Code: abcitypes.CodeTypeOK,
 			Data: req.Tx,
 			Log:  "tx committed successfully",
@@ -110,6 +111,8 @@ func (app *KVStoreApplication) DeliverTx(req abcitypes.RequestDeliverTx) abcityp
 				}},
 			}},
 		}
+
+		return respDeliverTx
 	}
 }
 
