@@ -7,7 +7,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtlog "github.com/cometbft/cometbft/libs/log"
 	"github.com/cometbft/cometbft/version"
-	db "kvstore/database"
+	db "kvstorepp/database"
 )
 
 type KVStoreApplication struct {
