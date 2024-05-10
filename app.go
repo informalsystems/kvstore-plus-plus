@@ -2,12 +2,12 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"errors"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtlog "github.com/cometbft/cometbft/libs/log"
+	tm "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cometbft/cometbft/version"
 	db "kvstorepp/database"
+	"time"
 )
 
 type KVStoreApplication struct {
@@ -16,21 +16,15 @@ type KVStoreApplication struct {
 	batch  db.Batch
 }
 
-var _ abcitypes.Application = (*KVStoreApplication)(nil)
-
-func NewKVStoreApplication(db *db.PebbleDB, logger cmtlog.Logger) *KVStoreApplication {
-	return &KVStoreApplication{db: db, logger: logger}
-}
-
-func (app *KVStoreApplication) Info(_ context.Context, _ *abcitypes.RequestInfo) (*abcitypes.ResponseInfo, error) {
-	return &abcitypes.ResponseInfo{
+func (app *KVStoreApplication) Info(_ abcitypes.RequestInfo) abcitypes.ResponseInfo {
+	return abcitypes.ResponseInfo{
 		Data:       "kvstore++",
 		Version:    version.ABCIVersion,
 		AppVersion: version.BlockProtocol,
-	}, nil
+	}
 }
 
-func (app *KVStoreApplication) Query(_ context.Context, req *abcitypes.RequestQuery) (*abcitypes.ResponseQuery, error) {
+func (app *KVStoreApplication) Query(req abcitypes.RequestQuery) abcitypes.ResponseQuery {
 	resp := abcitypes.ResponseQuery{Key: req.Data}
 
 	item, err := app.db.Get(req.Data)
@@ -46,93 +40,138 @@ func (app *KVStoreApplication) Query(_ context.Context, req *abcitypes.RequestQu
 		}
 	}
 
-	return &resp, nil
+	return resp
 }
 
-func (app *KVStoreApplication) CheckTx(_ context.Context, check *abcitypes.RequestCheckTx) (*abcitypes.ResponseCheckTx, error) {
-	code := app.isValid(check.Tx)
-	return &abcitypes.ResponseCheckTx{Code: code}, nil
+func (app *KVStoreApplication) CheckTx(req abcitypes.RequestCheckTx) abcitypes.ResponseCheckTx {
+	code := app.isValid(req.Tx)
+	return abcitypes.ResponseCheckTx{Code: code}
 }
 
-func (app *KVStoreApplication) InitChain(_ context.Context, _ *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error) {
-	return &abcitypes.ResponseInitChain{}, nil
+func (app *KVStoreApplication) InitChain(_ abcitypes.RequestInitChain) abcitypes.ResponseInitChain {
+	return abcitypes.ResponseInitChain{}
 }
 
-func (app *KVStoreApplication) PrepareProposal(_ context.Context, proposal *abcitypes.RequestPrepareProposal) (*abcitypes.ResponsePrepareProposal, error) {
-	return &abcitypes.ResponsePrepareProposal{Txs: proposal.Txs}, nil
+func (app *KVStoreApplication) PrepareProposal(req abcitypes.RequestPrepareProposal) abcitypes.ResponsePrepareProposal {
+	return abcitypes.ResponsePrepareProposal{Txs: req.Txs}
 }
 
-func (app *KVStoreApplication) ProcessProposal(_ context.Context, _ *abcitypes.RequestProcessProposal) (*abcitypes.ResponseProcessProposal, error) {
-	return &abcitypes.ResponseProcessProposal{Status: abcitypes.ResponseProcessProposal_ACCEPT}, nil
+func (app *KVStoreApplication) ProcessProposal(_ abcitypes.RequestProcessProposal) abcitypes.ResponseProcessProposal {
+	return abcitypes.ResponseProcessProposal{Status: abcitypes.ResponseProcessProposal_ACCEPT}
 }
 
-func (app *KVStoreApplication) FinalizeBlock(_ context.Context, req *abcitypes.RequestFinalizeBlock) (*abcitypes.ResponseFinalizeBlock, error) {
-	var txsResults = make([]*abcitypes.ExecTxResult, len(req.Txs))
-
+func (app *KVStoreApplication) BeginBlock(_ abcitypes.RequestBeginBlock) abcitypes.ResponseBeginBlock {
 	app.batch = app.db.NewBatch()
-	for i, tx := range req.Txs {
-		if code := app.isValid(tx); code != 0 {
-			app.logger.Error("abci", "method", "FinalizeBlock", "msg", "invalid tx", "code", code)
-			txsResults[i] = &abcitypes.ExecTxResult{Code: code}
-		} else {
-			parts := bytes.SplitN(tx, []byte("="), 2)
-			key, value := parts[0], parts[1]
-			err := app.batch.Set(key, value)
-			if err != nil {
-				app.logger.Error("abci", "method", "FinalizeBlock", "msg", "error setting batch", "code", code)
-				return nil, err
-			}
-			txsResults[i] = &abcitypes.ExecTxResult{
-				Code: 0,
-				Events: []abcitypes.Event{
-					{
-						Type: "event",
-						Attributes: []abcitypes.EventAttribute{
-							{Key: "key", Value: string(key), Index: true},
-							{Key: "value", Value: string(value), Index: true},
-						},
-					},
-				},
-			}
+	event := []abcitypes.Event{{
+		Type: "begin_block_event",
+		Attributes: []abcitypes.EventAttribute{
+			{Key: "key", Value: "key", Index: true},
+			{Key: "value", Value: "value", Index: true},
+		},
+	}}
+	return abcitypes.ResponseBeginBlock{Events: event}
+}
+
+func (app *KVStoreApplication) DeliverTx(req abcitypes.RequestDeliverTx) abcitypes.ResponseDeliverTx {
+
+	if code := app.isValid(req.Tx); code != 0 {
+		app.logger.Error("abci", "method", "DeliverTx", "msg", "invalid tx", "code", code)
+		return abcitypes.ResponseDeliverTx{
+			Code: abcitypes.CodeTypeOK,
+			Data: req.Tx,
+			Log:  "tx invalid",
+			Info: "tx processing info",
+			Events: []abcitypes.Event{{
+				Type: "deliver_tx_event",
+				Attributes: []abcitypes.EventAttribute{{
+					Key:   "key",
+					Value: "value",
+				}},
+			}},
+		}
+	} else {
+		parts := bytes.SplitN(req.Tx, []byte("="), 2)
+		key, value := parts[0], parts[1]
+		err := app.batch.Set(key, value)
+		if err != nil {
+			app.logger.Error("abci", "method", "FinalizeBlock", "msg", "error setting batch", "code", code)
+			panic(err)
+		}
+		return abcitypes.ResponseDeliverTx{
+			Code: abcitypes.CodeTypeOK,
+			Data: req.Tx,
+			Log:  "tx committed successfully",
+			Info: "tx processing info",
+			Events: []abcitypes.Event{{
+				Type: "deliver_tx_event",
+				Attributes: []abcitypes.EventAttribute{{
+					Key:   "key",
+					Value: "value",
+				}},
+			}},
 		}
 	}
-
-	return &abcitypes.ResponseFinalizeBlock{
-		TxResults: txsResults,
-	}, nil
 }
 
-func (app *KVStoreApplication) Commit(_ context.Context, _ *abcitypes.RequestCommit) (*abcitypes.ResponseCommit, error) {
+func (app *KVStoreApplication) EndBlock(_ abcitypes.RequestEndBlock) abcitypes.ResponseEndBlock {
+	return abcitypes.ResponseEndBlock{
+		ValidatorUpdates: nil,
+		ConsensusParamUpdates: &tm.ConsensusParams{
+			Block: &tm.BlockParams{
+				MaxBytes: int64(10000000),
+				MaxGas:   int64(100000),
+			},
+			Evidence: &tm.EvidenceParams{
+				MaxAgeNumBlocks: int64(10),
+				MaxAgeDuration:  time.Duration(10000),
+				MaxBytes:        int64(10000000),
+			},
+			Validator: &tm.ValidatorParams{
+				PubKeyTypes: []string{"ed25519"},
+			},
+			Version: &tm.VersionParams{
+				App: uint64(1),
+			},
+		},
+		Events: []abcitypes.Event{{
+			Type: "deliver_tx_event",
+			Attributes: []abcitypes.EventAttribute{{
+				Key:   "key",
+				Value: "value",
+			}},
+		}},
+	}
+}
+
+func (app *KVStoreApplication) Commit() abcitypes.ResponseCommit {
 	err := app.batch.Write()
 	if err != nil {
-		app.logger.Error("abci", "method", "Commit", "msg", "error writing batch", "err", err)
-		return nil, errors.New("error during commit")
+		app.logger.Error("abci", "method", "Commit", "msg", "error writing commit", "err", err)
+		panic(err)
 	}
-	return &abcitypes.ResponseCommit{}, nil
+	return abcitypes.ResponseCommit{}
 }
 
-func (app *KVStoreApplication) ListSnapshots(_ context.Context, _ *abcitypes.RequestListSnapshots) (*abcitypes.ResponseListSnapshots, error) {
-	return &abcitypes.ResponseListSnapshots{}, nil
+func (app *KVStoreApplication) ListSnapshots(snapshots abcitypes.RequestListSnapshots) abcitypes.ResponseListSnapshots {
+	return abcitypes.ResponseListSnapshots{}
 }
 
-func (app *KVStoreApplication) OfferSnapshot(_ context.Context, _ *abcitypes.RequestOfferSnapshot) (*abcitypes.ResponseOfferSnapshot, error) {
-	return &abcitypes.ResponseOfferSnapshot{}, nil
+func (app *KVStoreApplication) OfferSnapshot(snapshot abcitypes.RequestOfferSnapshot) abcitypes.ResponseOfferSnapshot {
+	return abcitypes.ResponseOfferSnapshot{}
 }
 
-func (app *KVStoreApplication) LoadSnapshotChunk(_ context.Context, _ *abcitypes.RequestLoadSnapshotChunk) (*abcitypes.ResponseLoadSnapshotChunk, error) {
-	return &abcitypes.ResponseLoadSnapshotChunk{}, nil
+func (app *KVStoreApplication) LoadSnapshotChunk(chunk abcitypes.RequestLoadSnapshotChunk) abcitypes.ResponseLoadSnapshotChunk {
+	return abcitypes.ResponseLoadSnapshotChunk{}
 }
 
-func (app *KVStoreApplication) ApplySnapshotChunk(_ context.Context, _ *abcitypes.RequestApplySnapshotChunk) (*abcitypes.ResponseApplySnapshotChunk, error) {
-	return &abcitypes.ResponseApplySnapshotChunk{Result: abcitypes.ResponseApplySnapshotChunk_ACCEPT}, nil
+func (app *KVStoreApplication) ApplySnapshotChunk(chunk abcitypes.RequestApplySnapshotChunk) abcitypes.ResponseApplySnapshotChunk {
+	return abcitypes.ResponseApplySnapshotChunk{Result: abcitypes.ResponseApplySnapshotChunk_ACCEPT}
 }
 
-func (app *KVStoreApplication) ExtendVote(_ context.Context, _ *abcitypes.RequestExtendVote) (*abcitypes.ResponseExtendVote, error) {
-	return &abcitypes.ResponseExtendVote{}, nil
-}
+var _ abcitypes.Application = (*KVStoreApplication)(nil)
 
-func (app *KVStoreApplication) VerifyVoteExtension(_ context.Context, verify *abcitypes.RequestVerifyVoteExtension) (*abcitypes.ResponseVerifyVoteExtension, error) {
-	return &abcitypes.ResponseVerifyVoteExtension{}, nil
+func NewKVStoreApplication(db *db.PebbleDB, logger cmtlog.Logger) *KVStoreApplication {
+	return &KVStoreApplication{db: db, logger: logger}
 }
 
 func (app *KVStoreApplication) isValid(tx []byte) uint32 {
