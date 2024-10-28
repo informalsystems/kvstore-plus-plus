@@ -3,21 +3,23 @@ package main
 import (
 	"flag"
 	abciserver "github.com/cometbft/cometbft/abci/server"
+	cmtlog "github.com/cometbft/cometbft/libs/log"
+	"github.com/cometbft/cometbft/libs/service"
+	db "kvstore/database"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
-
-	cmtlog "github.com/cometbft/cometbft/libs/log"
-	db "kvstore/database"
 )
 
 var homeDir string
 var socketAddr string
+var app string
 
 func init() {
 	flag.StringVar(&homeDir, "home", "", "Path to the kvstore directory (if empty, uses $HOME/.kvstore)")
+	flag.StringVar(&app, "app", "", "If you want to run the malachite app enter malachite here, otherwise it runs the regular kvstore")
 	flag.StringVar(&socketAddr, "address", "unix://example.sock", "Unix domain socket address (if empty, uses \"unix://example.sock\"")
 }
 
@@ -43,9 +45,18 @@ func main() {
 		}
 	}()
 
-	app := NewKVStoreApplication(db, logger)
+	var server service.Service
 
-	server := abciserver.NewSocketServer(socketAddr, app)
+	if app == "malachite" {
+		app := NewKVStoreApplicationMalachite(db, logger)
+		server = abciserver.NewSocketServer(socketAddr, app)
+
+	} else {
+		app := NewKVStoreApplication(db, logger)
+		server = abciserver.NewSocketServer(socketAddr, app)
+	}
+
+	// server := abciserver.NewSocketServer(socketAddr, app)
 	server.SetLogger(logger)
 
 	if err := server.Start(); err != nil {
