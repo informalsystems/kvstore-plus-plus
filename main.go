@@ -64,7 +64,6 @@ func main() {
 		server = abciserver.NewSocketServer(socketAddr, app)
 	}
 
-	// server := abciserver.NewSocketServer(socketAddr, app)
 	server.SetLogger(logger)
 
 	if err := server.Start(); err != nil {
