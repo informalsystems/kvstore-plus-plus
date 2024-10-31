@@ -35,7 +35,7 @@ On another terminal window in the current directory for this project, run the Co
 , for example, run the commands below to initialize and run CometBFT:
 
 ```
-go run github.com/cometbft/cometbft/cmd/cometbft@v1.0.0-alpha.2 init --home /tmp/cometbft-kv
-go run github.com/cometbft/cometbft/cmd/cometbft@v1.0.0-alpha.2 start --home /tmp/cometbft-kv --proxy_app unix:///tmp/kvstoreplusplus.sock
+go run github.com/cometbft/cometbft/cmd/cometbft@v0.38 init --home /tmp/cometbft-kv
+go run github.com/cometbft/cometbft/cmd/cometbft@v0.38 start --home /tmp/cometbft-kv --proxy_app unix:///tmp/kvstoreplusplus.sock
 ```
 

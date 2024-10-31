@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	abciserver "github.com/cometbft/cometbft/abci/server"
 	cmtlog "github.com/cometbft/cometbft/libs/log"
 	"github.com/cometbft/cometbft/libs/service"
@@ -12,6 +13,9 @@ import (
 	"path/filepath"
 	"syscall"
 )
+
+const defaultHomeDir = "$HOME/.kvstore-plus-plus"
+const defaultSocket = "unix:///tmp/kvstore-plus-plus.sock"
 
 var homeDir string
 var socketAddr string
@@ -28,12 +32,15 @@ func main() {
 
 	logger := cmtlog.NewTMLogger(cmtlog.NewSyncWriter(os.Stdout))
 
-	defaultHomeDir := "$HOME/.kvstore++"
 	if homeDir == "" {
 		homeDir = os.ExpandEnv(defaultHomeDir)
 	}
+	if socketAddr == "" {
+		socketAddr = defaultSocket
+	}
+
 	dbPath := filepath.Join(homeDir, "data")
-	db, err := db.NewPebbleDB("kvstore++", dbPath)
+	db, err := db.NewPebbleDB("kvstore-plus-plus", dbPath)
 	if err != nil {
 		log.Fatalf("Opening database: %v", err)
 	}
@@ -60,14 +67,24 @@ func main() {
 	server.SetLogger(logger)
 
 	if err := server.Start(); err != nil {
-		logger.Error("server", "error starting socket server", err)
+		logger.Error("server", "error starting socket server", "err", err)
 		os.Exit(1)
 	}
+	logger.Info("server listening", "address", socketAddr)
+
 	if server.IsRunning() {
-		logger.Info("service running", "msg", "ABCI Server started")
+		logger.Info("service running", "msg", "ABCI server is running")
+	} else {
+		logger.Error("server", "server is not running, aborting...")
+		os.Exit(1)
 	}
 
-	defer server.Stop()
+	defer func(server service.Service) {
+		err := server.Stop()
+		if err != nil {
+			logger.Error("failed to stop the server", "err", err)
+		}
+	}(server)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
