@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"kvstorepp/database"
+
 	abciserver "github.com/cometbft/cometbft/abci/server"
 	cmtlog "github.com/cometbft/cometbft/libs/log"
 	"github.com/cometbft/cometbft/libs/service"
-	db "kvstore/database"
+
 	"log"
 	"os"
 	"os/signal"
@@ -40,7 +41,7 @@ func main() {
 	}
 
 	dbPath := filepath.Join(homeDir, "data")
-	db, err := db.NewPebbleDB("kvstore-plus-plus", dbPath)
+	db, err := database.NewPebbleDB("kvstore-plus-plus", dbPath)
 	if err != nil {
 		log.Fatalf("Opening database: %v", err)
 	}
