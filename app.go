@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	db "kvstorepp/database"
+
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtlog "github.com/cometbft/cometbft/libs/log"
 	"github.com/cometbft/cometbft/version"
-	db "kvstorepp/database"
 )
 
 type KVStoreApplication struct {
@@ -68,6 +69,7 @@ func (app *KVStoreApplication) ProcessProposal(_ context.Context, _ *abcitypes.R
 
 func (app *KVStoreApplication) FinalizeBlock(_ context.Context, req *abcitypes.RequestFinalizeBlock) (*abcitypes.ResponseFinalizeBlock, error) {
 	var txsResults = make([]*abcitypes.ExecTxResult, len(req.Txs))
+
 	app.batch = app.db.NewBatch()
 	for i, tx := range req.Txs {
 		if code := app.isValid(tx); code != 0 {
